@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "218368174986",
+    "project_id": "abaarso-car-rental",
+    "storage_bucket": "abaarso-car-rental.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:218368174986:android:89de8b656394a3f5d63673",
+        "android_client_info": {
+          "package_name": "com.abaarso.carrental.abaarso_car_rental"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDeJzXPuDvvYfHYAdLNAlqRV8O7WxKU4m0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
