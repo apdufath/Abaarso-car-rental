@@ -1,57 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/app_strings.dart';
+
+final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
+  throw UnimplementedError('SharedPreferences was not overridden in ProviderScope');
+});
 
 class AppSettingsState {
   final ThemeMode themeMode;
   final Locale locale;
+  final bool isFirstRun;
 
   AppSettingsState({
     required this.themeMode,
     required this.locale,
+    required this.isFirstRun,
   });
 
   AppSettingsState copyWith({
     ThemeMode? themeMode,
     Locale? locale,
+    bool? isFirstRun,
   }) {
     return AppSettingsState(
       themeMode: themeMode ?? this.themeMode,
       locale: locale ?? this.locale,
+      isFirstRun: isFirstRun ?? this.isFirstRun,
     );
   }
 }
 
 class AppSettingsNotifier extends StateNotifier<AppSettingsState> {
-  AppSettingsNotifier() : super(AppSettingsState(themeMode: ThemeMode.light, locale: const Locale('en'))) {
-    _loadSettings();
-  }
+  final SharedPreferences _prefs;
 
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    final isDark = prefs.getBool('is_dark_theme') ?? false;
-    final theme = isDark ? ThemeMode.dark : ThemeMode.light;
-    
-    final langCode = prefs.getString('language_code') ?? 'en';
-    final loc = Locale(langCode);
-    
-    state = AppSettingsState(themeMode: theme, locale: loc);
-  }
+  AppSettingsNotifier(this._prefs)
+      : super(
+          AppSettingsState(
+            themeMode: (_prefs.getBool('is_dark_theme') ?? false) ? ThemeMode.dark : ThemeMode.light,
+            locale: Locale(_prefs.getString('language_code') ?? 'en'),
+            isFirstRun: _prefs.getBool(AppStrings.keyFirstRun) ?? true,
+          ),
+        );
 
   Future<void> toggleTheme(bool isDark) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('is_dark_theme', isDark);
+    await _prefs.setBool('is_dark_theme', isDark);
     state = state.copyWith(themeMode: isDark ? ThemeMode.dark : ThemeMode.light);
   }
 
   Future<void> setLocale(String langCode) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('language_code', langCode);
+    await _prefs.setString('language_code', langCode);
     state = state.copyWith(locale: Locale(langCode));
+  }
+
+  Future<void> completeOnboarding() async {
+    await _prefs.setBool(AppStrings.keyFirstRun, false);
+    state = state.copyWith(isFirstRun: false);
   }
 }
 
 final appSettingsProvider = StateNotifierProvider<AppSettingsNotifier, AppSettingsState>((ref) {
-  return AppSettingsNotifier();
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return AppSettingsNotifier(prefs);
 });
+

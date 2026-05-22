@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/dark_theme.dart';
@@ -10,6 +11,9 @@ import 'l10n/app_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Preload SharedPreferences synchronously for instant Riverpod availability
+  final sharedPrefs = await SharedPreferences.getInstance();
 
   // Try initializing Firebase
   try {
@@ -21,11 +25,15 @@ void main() async {
   }
 
   runApp(
-    const ProviderScope(
-      child: AbaarsoApp(),
+    ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(sharedPrefs),
+      ],
+      child: const AbaarsoApp(),
     ),
   );
 }
+
 
 class AbaarsoApp extends ConsumerWidget {
   const AbaarsoApp({super.key});

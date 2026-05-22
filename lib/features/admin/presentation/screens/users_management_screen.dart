@@ -11,8 +11,6 @@ class UsersManagementScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-
     final usersAsync = ref.watch(adminUsersProvider);
 
     return Scaffold(

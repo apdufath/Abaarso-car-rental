@@ -197,11 +197,31 @@ class SimulatedAuthRemoteDataSource implements AuthRemoteDataSource {
   Future<UserCredential> signInWithEmail(String email, String password) async {
     await Future.delayed(const Duration(milliseconds: 600));
     // Find user in simulated DB by email
-    final match = _simulatedDb.entries
+    var match = _simulatedDb.entries
         .where((e) => e.value.email?.toLowerCase() == email.toLowerCase())
         .firstOrNull;
     if (match == null) {
-      throw FirebaseAuthException(code: 'user-not-found', message: 'No user found with this email.');
+      // Auto-register new customer for offline testing/verification friction-free!
+      final now = DateTime.now();
+      final sanitizedEmail = email.toLowerCase().trim();
+      final nameFromEmail = sanitizedEmail.split('@').first;
+      final displayName = nameFromEmail.isNotEmpty 
+          ? '${nameFromEmail[0].toUpperCase()}${nameFromEmail.substring(1)}'
+          : 'Simulated User';
+      final newUid = 'simulated_uid_${sanitizedEmail.hashCode}';
+      
+      final newUser = UserEntity(
+        uid: newUid,
+        fullName: displayName,
+        phone: '+252636666666',
+        email: sanitizedEmail,
+        role: UserRole.customer,
+        isVerified: false,
+        createdAt: now,
+        updatedAt: now,
+      );
+      _simulatedDb[newUid] = newUser;
+      match = MapEntry(newUid, newUser);
     }
     final uid = match.key;
     _currentUser = _SimulatedUser(uid: uid, phoneNumber: match.value.phone);

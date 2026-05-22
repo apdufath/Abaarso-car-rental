@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../constants/app_routes.dart';
 import '../widgets/main_navigation_wrapper.dart';
+import 'app_settings_provider.dart';
 
 // Screens
-import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/onboarding_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
@@ -35,9 +35,15 @@ class RouterNotifier extends ChangeNotifier {
   final Ref _ref;
 
   RouterNotifier(this._ref) {
-    // Listen to Auth State changes to trigger router redirection refresh
+    // Listen to Auth State and Settings changes to trigger router redirection refresh
     _ref.listen<AuthState>(
       authNotifierProvider,
+      (previous, next) {
+        notifyListeners();
+      },
+    );
+    _ref.listen<AppSettingsState>(
+      appSettingsProvider,
       (previous, next) {
         notifyListeners();
       },
@@ -53,44 +59,55 @@ final routerProvider = Provider<GoRouter>((ref) {
   final routerNotifier = ref.watch(routerNotifierProvider);
 
   return GoRouter(
-    initialLocation: AppRoutes.splash,
+    initialLocation: AppRoutes.login,
     refreshListenable: routerNotifier,
     redirect: (context, state) {
+      final settings = ref.read(appSettingsProvider);
       final authState = ref.read(authNotifierProvider);
       final user = authState.user;
 
-      final isSplash = state.uri.path == AppRoutes.splash;
       final isOnboarding = state.uri.path == AppRoutes.onboarding;
       final isLogin = state.uri.path == AppRoutes.login;
       final isRegister = state.uri.path == AppRoutes.register;
       final isProfileSetup = state.uri.path == AppRoutes.profileSetup;
       
-      final isAuthRoute = isLogin || isRegister || isOnboarding || isSplash;
+      final isAuthRoute = isLogin || isRegister || isOnboarding;
 
-      // 1. Loading state -> no redirect yet
-      if (authState.isLoading && isSplash) {
+      // 1. Check Onboarding First (First Run)
+      if (settings.isFirstRun) {
+        if (isOnboarding) return null;
+        return AppRoutes.onboarding;
+      }
+
+      // If user tries to access Onboarding after completing it, send them to login or home
+      if (isOnboarding && !settings.isFirstRun) {
+        return user == null ? AppRoutes.login : AppRoutes.home;
+      }
+
+      // 2. Loading state -> no redirect yet
+      if (authState.isLoading) {
         return null;
       }
 
-      // 2. Unauthenticated User
+      // 3. Unauthenticated User
       if (user == null) {
         if (authState.needsRegistration) {
           return isRegister ? null : AppRoutes.register;
         }
-        // Allow public pages (Splash, Onboarding, Login)
+        // Allow public pages (Onboarding, Login)
         if (isAuthRoute) return null;
         // Gated paths -> Redirect to login
         return AppRoutes.login;
       }
-
-      // 3. Authenticated User with missing KYC Documents
+      
+      // 4. Authenticated User with missing KYC Documents
       final kycIncomplete = user.licenseImageUrl == null || user.idCardImageUrl == null;
       if (kycIncomplete && user.role != UserRole.admin) {
         if (isProfileSetup) return null;
         return AppRoutes.profileSetup;
       }
 
-      // 4. Authenticated User (Fully Gated Pages check)
+      // 5. Authenticated User (Fully Gated Pages check)
       if (isAuthRoute || (isProfileSetup && !kycIncomplete)) {
         if (user.role == UserRole.admin) {
           return AppRoutes.adminDashboard;
@@ -98,7 +115,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         return AppRoutes.home;
       }
 
-      // 5. Admin Route Gating
+      // 6. Admin Route Gating
       final isAdminRoute = state.uri.path.startsWith('/admin');
       if (isAdminRoute && user.role != UserRole.admin) {
         return AppRoutes.home; // Kick customers out of admin routes
@@ -108,10 +125,6 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       // Auth & Flow Pages
-      GoRoute(
-        path: AppRoutes.splash,
-        builder: (context, state) => const SplashScreen(),
-      ),
       GoRoute(
         path: AppRoutes.onboarding,
         builder: (context, state) => const OnboardingScreen(),
